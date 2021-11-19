@@ -1,0 +1,4 @@
+node_modules/
+.env
+webcam_feed.jpg
+log.txt
