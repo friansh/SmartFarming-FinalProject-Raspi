@@ -14,11 +14,36 @@ const mqtt = require("mqtt");
 const SerialPort = require("serialport");
 const Readline = require("@serialport/parser-readline");
 
-const webcam = require("./webcam");
-
 printWithTimestamp(
   "oo[BOOT] Done loading the required dependencies/libraries."
 );
+
+const Axios = require("axios");
+
+let configuration = {};
+
+gatherConfiguration();
+
+async function gatherConfiguration() {
+  configuration = await Axios.post(
+    `${process.env.API_URL}/agroclimate/device`,
+    {
+      device_token: process.env.DEVICE_TOKEN,
+    }
+  ).catch((err) => {
+    printWithTimestamp(
+      `oo[CONF] Failed getting the agroclimate configuration from server. Error code: ${err.response.status} (${err.response.data}).`
+    );
+  });
+
+  if (configuration == undefined) return;
+
+  // console.log(configuration.data);
+
+  printWithTimestamp(
+    "oo[CONF] Done getting the agroclimate configuration from server."
+  );
+}
 
 const clientCert = fs.readFileSync("./certs/smartfarmer-client-raspi.cert.pem");
 const clientKey = fs.readFileSync("./certs/smartfarmer-client-raspi.key");
@@ -73,10 +98,12 @@ parser.on("data", (data) => {
   console.log(data);
   printWithTimestamp(`->${data}`);
   if (data.substring(0, 6) == "[COMD]") {
+    if (configuration == {}) return;
+
     let arduinoSettings = {
-      ph: 6.2,
-      light_intensity: 15422,
-      nutrient_flow: 1.4,
+      ph: configuration.ph,
+      light_intensity: configuration.light_intensity,
+      nutrient_flow: configuration.nutrient_flow,
       growth_light: false,
     };
 
@@ -87,30 +114,25 @@ parser.on("data", (data) => {
 
   if (data.substring(0, 6) == "[DATA]") {
     let dataFromArduino = JSON.parse(data.substring(7));
-    webcam()
-      .then((image) => {
-        let dataRoutine = {
-          token: process.env.DEVICE_TOKEN,
-          temperature: dataFromArduino.temperature,
-          humidity: dataFromArduino.humidity,
-          ph: dataFromArduino.ph,
-          light_intensity: dataFromArduino.light_intensity,
-          nutrient_flow: dataFromArduino.nutrient_flow,
-          nutrient_level: dataFromArduino.nutrient_level,
-          acid_solution_level: dataFromArduino.acid_solution_level,
-          base_solution_level: dataFromArduino.base_solution_level,
-          tds: dataFromArduino.tds,
-          ec: dataFromArduino.ec,
-          image: image.substring(23),
-        };
+    let dataRoutine = {
+      temperature: dataFromArduino.temperature,
+      humidity: dataFromArduino.humidity,
+      ph: dataFromArduino.ph,
+      light_intensity: dataFromArduino.light_intensity,
+      nutrient_flow: dataFromArduino.nutrient_flow,
+      nutrient_level: dataFromArduino.nutrient_level,
+      acid_solution_level: dataFromArduino.acid_solution_level,
+      base_solution_level: dataFromArduino.base_solution_level,
+      tds: dataFromArduino.tds,
+      ec: dataFromArduino.ec,
+      sent: Date.now(),
+    };
 
-        printWithTimestamp("oo[MQTT] Transmitting data to the server...");
-        mqttClient.publish(
-          `smartfarmer/data/${process.env.DEVICE_TOKEN}`,
-          JSON.stringify(dataRoutine)
-        );
-      })
-      .catch(() => {});
+    printWithTimestamp("oo[MQTT] Transmitting data to the server...");
+    mqttClient.publish(
+      `smartfarmer/data/${process.env.DEVICE_TOKEN}`,
+      JSON.stringify(dataRoutine)
+    );
   }
 });
 
