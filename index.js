@@ -11,14 +11,13 @@ printWithTimestamp(
 
 require("dotenv").config();
 const mqtt = require("mqtt");
-const SerialPort = require("serialport");
-const Readline = require("@serialport/parser-readline");
 
 printWithTimestamp(
   "oo[BOOT] Done loading the required dependencies/libraries."
 );
 
 const Axios = require("axios");
+Axios.defaults.baseURL = process.env.DEVICE_API_URL;
 
 let configuration = {};
 
@@ -38,7 +37,7 @@ async function gatherConfiguration() {
 
   if (configuration == undefined) return;
 
-  // console.log(configuration.data);
+  console.log(configuration.data);
 
   printWithTimestamp(
     "oo[CONF] Done getting the agroclimate configuration from server."
@@ -82,19 +81,34 @@ mqttClient.on("message", function (topic, message) {
 
 setInterval(() => {
   printWithTimestamp("oo[SERL] Obtaining the sensors data from Arduino...");
-  port.write(
-    JSON.stringify({
-      action: 2,
+  Axios.get("/sensors")
+    .then((response) => {
+      let dataRoutine = {
+        temperature: response.data.temperature,
+        humidity: response.data.humidity,
+        ph: response.data.ph,
+        light_intensity: response.data.light_intensity,
+        nutrient_flow: response.data.nutrient_flow,
+        nutrient_level: response.data.nutrient_level,
+        acid_solution_level: response.data.acid_solution_level,
+        base_solution_level: response.data.base_solution_level,
+        tds: response.data.tds,
+        ec: response.data.ec,
+        sent: Date.now(),
+      };
+
+      printWithTimestamp("oo[MQTT] Transmitting data to the server...");
+      mqttClient.publish(
+        `smartfarmer/data/${process.env.DEVICE_TOKEN}`,
+        JSON.stringify(dataRoutine)
+      );
     })
-  );
+    .catch((error) => {
+      console.log(error.response);
+    });
 }, parseInt(process.env.SENSOR_OBTAINING_INTERVAL));
 
-const port = new SerialPort(process.env.SERIAL_PORT, {
-  baudRate: parseInt(process.env.SERIAL_BAUDRATE),
-});
-const parser = port.pipe(new Readline({ delimiter: "\r\n" }));
-
-parser.on("data", (data) => {
+/*
   console.log(data);
   printWithTimestamp(`->${data}`);
   if (data.substring(0, 6) == "[COMD]") {
@@ -112,29 +126,9 @@ parser.on("data", (data) => {
     port.write(arduinoSettingsJSON);
   }
 
-  if (data.substring(0, 6) == "[DATA]") {
-    let dataFromArduino = JSON.parse(data.substring(7));
-    let dataRoutine = {
-      temperature: dataFromArduino.temperature,
-      humidity: dataFromArduino.humidity,
-      ph: dataFromArduino.ph,
-      light_intensity: dataFromArduino.light_intensity,
-      nutrient_flow: dataFromArduino.nutrient_flow,
-      nutrient_level: dataFromArduino.nutrient_level,
-      acid_solution_level: dataFromArduino.acid_solution_level,
-      base_solution_level: dataFromArduino.base_solution_level,
-      tds: dataFromArduino.tds,
-      ec: dataFromArduino.ec,
-      sent: Date.now(),
-    };
 
-    printWithTimestamp("oo[MQTT] Transmitting data to the server...");
-    mqttClient.publish(
-      `smartfarmer/data/${process.env.DEVICE_TOKEN}`,
-      JSON.stringify(dataRoutine)
-    );
   }
-});
+*/
 
 function printWithTimestamp(message) {
   const nowTime = new Date();
