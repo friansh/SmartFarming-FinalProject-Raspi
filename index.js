@@ -84,14 +84,9 @@ setInterval(() => {
   Axios.get("/sensors")
     .then((response) => {
       let dataRoutine = {
-        temperature: response.data.temperature,
-        humidity: response.data.humidity,
         ph: response.data.ph,
         light_intensity: response.data.light_intensity,
         nutrient_flow: response.data.nutrient_flow,
-        nutrient_level: response.data.nutrient_level,
-        acid_solution_level: response.data.acid_solution_level,
-        base_solution_level: response.data.base_solution_level,
         tds: response.data.tds,
         ec: response.data.ec,
         sent: Date.now(),
