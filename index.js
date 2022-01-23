@@ -23,11 +23,11 @@ let gatherConfigIntervalId;
 
 gatherConfiguration();
 
-let lastReceivedConfig = 0;
-
 var querystring = require("querystring");
 
 async function gatherConfiguration() {
+  const gatherConfigTimeStart = Date.now();
+
   Axios.post(`${process.env.API_URL}/agroclimate/device`, {
     device_token: process.env.DEVICE_TOKEN,
   })
@@ -40,13 +40,8 @@ async function gatherConfiguration() {
         `oo[CONF] The configuration obtained from the server successfully.`
       );
       printWithTimestamp(
-        `oo[CONF] The configuration from server last update at: ${new Date(
-          config.updatedAt
-        ).getTime()} and received at: ${configReceivedTime}. So, the latency is ${
-          configReceivedTime -
-          new Date(config.updatedAt).getTime() -
-          config.refresh_time -
-          lastReceivedConfig
+        `oo[CONF] Config gathering started at ${gatherConfigTimeStart} and ended at ${configReceivedTime} with latency ${
+          configReceivedTime - gatherConfigTimeStart
         } ms`
       );
 
@@ -98,7 +93,8 @@ async function gatherConfiguration() {
           .then((response) => {
             let dataRoutine = {
               ph: response.data.ph,
-              light_intensity: response.data.light_intensity,
+              light_intensity_inside: response.data.light_intensity_inside,
+              light_intensity_outside: response.data.light_intensity_outside,
               nutrient_flow: response.data.nutrient_flow,
               tds: response.data.tds,
               ec: response.data.ec,
