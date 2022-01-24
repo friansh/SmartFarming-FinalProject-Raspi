@@ -34,7 +34,7 @@ async function gatherConfiguration() {
     .then((response) => {
       const configReceivedTime = Date.now();
       const config = response.data;
-      // console.log(config);
+      console.log(config);
 
       printWithTimestamp(
         `oo[CONF] The configuration obtained from the server successfully.`
