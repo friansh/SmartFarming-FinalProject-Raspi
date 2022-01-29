@@ -20,6 +20,7 @@ const Axios = require("axios");
 
 let obtainSensorsDataIntervalId;
 let gatherConfigIntervalId;
+let refreshLampStateId;
 
 gatherConfiguration();
 
@@ -81,6 +82,39 @@ async function gatherConfiguration() {
         gatherConfiguration,
         config.refresh_time
       );
+
+      if (refreshLampStateId != undefined) clearInterval(refreshLampStateId);
+
+      refreshLampStateId = setInterval(() => {
+        const CURRENT_DATE = new Date();
+        let dayStart = new Date(config.day_start);
+        dayStart.setFullYear(CURRENT_DATE.getFullYear());
+        dayStart.setMonth(CURRENT_DATE.getMonth());
+        dayStart.setDate(CURRENT_DATE.getDate());
+
+        let dayEnd = new Date(config.day_end);
+        dayEnd.setFullYear(CURRENT_DATE.getFullYear());
+        dayEnd.setMonth(CURRENT_DATE.getMonth());
+        dayEnd.setDate(CURRENT_DATE.getDate());
+
+        Axios.get(
+          `${process.env.DEVICE_API_URL}/light/${
+            CURRENT_DATE > dayStart && CURRENT_DATE < dayEnd ? 1 : 0
+          }`
+        )
+          .then((response) => {
+            printWithTimestamp(
+              `oo[CONF] The new lamp state has successfully sent (${
+                CURRENT_DATE > dayStart && CURRENT_DATE < dayEnd ? "On" : "Off"
+              }).`
+            );
+          })
+          .catch((err) => {
+            printWithTimestamp(
+              `oo[CONF] Failed to set the new configuration to Arduino. Error code: ${err.response.status} (${err.response.data}).`
+            );
+          });
+      }, process.env.LAMP_STATE_REFRESH_INTERVAL);
 
       if (obtainSensorsDataIntervalId != undefined)
         clearInterval(obtainSensorsDataIntervalId);
